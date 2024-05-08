@@ -10,6 +10,7 @@ import {
 	Color3,
 	Engine,
 	HemisphericLight,
+	Matrix,
 	MeshBuilder,
 	Scene,
 	SceneLoader,
@@ -17,10 +18,10 @@ import {
 	Vector3,
 } from '@babylonjs/core';
 
-var canvas: HTMLCanvasElement;
-var engine: Engine;
-var scene: Scene;
-var camera: BABYLON.ArcRotateCamera;
+let canvas: HTMLCanvasElement;
+let engine: Engine;
+let scene: Scene;
+let camera: ArcRotateCamera;
 
 //state
 // interface IState {
@@ -130,6 +131,8 @@ const createScene = (): void => {
 	loadModel();
 
 	loadPrimitive();
+
+	checkForMesh();
 };
 
 /****************************************
@@ -154,9 +157,9 @@ const setupCamera = () => {
  * @returns {void}
  ****************************************/
 const createGUI = () => {
-	var advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
+	let advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
 
-	var button = GUI.Button.CreateSimpleButton('btnClickHere', 'Click Here');
+	let button = GUI.Button.CreateSimpleButton('btnClickHere', 'Click Here');
 	button.width = 0.15;
 	button.height = 0.075;
 	button.top = '300px';
@@ -176,7 +179,7 @@ const createGUI = () => {
  * @returns {void}
  ****************************************/
 const setupLight = () => {
-	var hemiLight = new HemisphericLight(
+	let hemiLight = new HemisphericLight(
 		'hemiLight',
 		new Vector3(-1, 1, 0),
 		scene,
@@ -210,8 +213,8 @@ const loadModel = () => {
  ****************************************/
 const loadPrimitive = () => {
 	const numberOfSpheres = 5;
-	const minPos = -1.5;
-	const maxPos = 1.5;
+	const minPos = -1.0;
+	const maxPos = 1.0;
 	const minRadius = 0.75;
 	const maxRadius = 1.0;
 
@@ -222,26 +225,44 @@ const loadPrimitive = () => {
 		const diameter = getRandomInRange(minRadius, maxRadius) * 2;
 
 		// Generate random color
-		const color = new BABYLON.Color3(
+		const color = new Color3(
 			getRandomInRange(0, 1), // Red
 			getRandomInRange(0, 1), // Green
 			getRandomInRange(0, 1), // Blue
 		);
 
 		// Create sphere
-		const sphere = BABYLON.MeshBuilder.CreateSphere(
+		const sphere = MeshBuilder.CreateSphere(
 			`sphere${i}`,
 			{ diameter },
 			scene,
 		);
 
-		sphere.position = new BABYLON.Vector3(x, y, z);
+		sphere.position = new Vector3(x, y, z);
 
 		// Apply color to material
-		const material = new BABYLON.StandardMaterial(`material${i}`, scene);
+		const material = new StandardMaterial(`material${i}`, scene);
 		material.diffuseColor = color;
 		sphere.material = material;
 	}
+};
+
+const checkForMesh = () => {
+	scene.onPointerMove = () => {
+		let ray = scene.createPickingRay(
+			scene.pointerX,
+			scene.pointerY,
+			Matrix.Identity(),
+			camera,
+			false,
+		);
+
+		let hit = scene.pickWithRay(ray);
+
+		if (hit?.pickedMesh) {
+			console.log(hit.pickedMesh.name);
+		}
+	};
 };
 
 /****************************************
