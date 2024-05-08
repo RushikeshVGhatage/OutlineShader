@@ -4,10 +4,22 @@ import * as BABYLON from '@babylonjs/core';
 import '@babylonjs/loaders';
 import * as GUI from '@babylonjs/gui';
 import { Inspector } from '@babylonjs/inspector';
+import {
+	ArcRotateCamera,
+	AxesViewer,
+	Color3,
+	Engine,
+	HemisphericLight,
+	MeshBuilder,
+	Scene,
+	SceneLoader,
+	StandardMaterial,
+	Vector3,
+} from '@babylonjs/core';
 
 var canvas: HTMLCanvasElement;
-var engine: BABYLON.Engine;
-var scene: BABYLON.Scene;
+var engine: Engine;
+var scene: Scene;
 var camera: BABYLON.ArcRotateCamera;
 
 //state
@@ -30,7 +42,7 @@ export default function SceneComponent() {
 		canvas = document.getElementById('canvas') as HTMLCanvasElement;
 		console.log('Canvas created successfully');
 
-		engine = new BABYLON.Engine(
+		engine = new Engine(
 			canvas,
 			true,
 			{
@@ -40,7 +52,7 @@ export default function SceneComponent() {
 		);
 		console.log('Engine initialized succesfully');
 
-		// let axis = new BABYLON.AxesViewer(scene, 100);
+		// let axis = new AxesViewer(scene, 100);
 		// console.log(axis);
 
 		document.addEventListener('keydown', (event) => {
@@ -107,7 +119,7 @@ const keyUp = (event: KeyboardEvent): void => {
  * @returns {void}
  ****************************************/
 const createScene = (): void => {
-	scene = new BABYLON.Scene(engine);
+	scene = new Scene(engine);
 
 	setupCamera();
 
@@ -115,7 +127,7 @@ const createScene = (): void => {
 
 	// createGUI();
 
-	// loadModel();
+	loadModel();
 
 	loadPrimitive();
 };
@@ -125,12 +137,12 @@ const createScene = (): void => {
  * @returns {void}
  ****************************************/
 const setupCamera = () => {
-	camera = new BABYLON.ArcRotateCamera(
+	camera = new ArcRotateCamera(
 		'Camera',
 		0,
 		Math.PI / 2.5,
 		10,
-		new BABYLON.Vector3(0, 0, 0),
+		new Vector3(0, 0, 0),
 		scene,
 	);
 
@@ -164,9 +176,9 @@ const createGUI = () => {
  * @returns {void}
  ****************************************/
 const setupLight = () => {
-	var hemiLight = new BABYLON.HemisphericLight(
+	var hemiLight = new HemisphericLight(
 		'hemiLight',
-		new BABYLON.Vector3(-1, 1, 0),
+		new Vector3(-1, 1, 0),
 		scene,
 	);
 
@@ -178,22 +190,15 @@ const setupLight = () => {
  * @returns {void}
  ****************************************/
 const loadModel = () => {
-	BABYLON.SceneLoader.ImportMesh(
+	SceneLoader.ImportMesh(
 		'',
 		'/assets/',
-		'RobotExpressive.glb',
+		'StanfordBunny.obj',
 		scene,
-		(meshes, particleSystems, skeleton, animationGroups) => {
+		(meshes) => {
 			let root = meshes[0];
-			root.name = '__root__';
 
-			animationGroups.forEach((value, index) => {
-				animationGroups[index].stop();
-			});
-
-			animationGroups[12].play();
-
-			root.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI / 2);
+			root.position = new Vector3(0, -1, 0);
 			console.log('Model loaded successfully!');
 		},
 	);
@@ -204,16 +209,47 @@ const loadModel = () => {
  * @returns {void}
  ****************************************/
 const loadPrimitive = () => {
-	var sphere = BABYLON.MeshBuilder.CreateSphere(
-		'sphere',
-		{
-			diameter: 1,
-			segments: 32,
-		},
-		scene,
-	);
+	const numberOfSpheres = 5;
+	const minPos = -1.5;
+	const maxPos = 1.5;
+	const minRadius = 0.75;
+	const maxRadius = 1.0;
 
-	sphere.position.y = 1;
+	for (let i = 0; i < numberOfSpheres; i++) {
+		const x = getRandomInRange(minPos, maxPos);
+		const y = getRandomInRange(minPos, maxPos);
+		const z = getRandomInRange(minPos, maxPos);
+		const diameter = getRandomInRange(minRadius, maxRadius) * 2;
+
+		// Generate random color
+		const color = new BABYLON.Color3(
+			getRandomInRange(0, 1), // Red
+			getRandomInRange(0, 1), // Green
+			getRandomInRange(0, 1), // Blue
+		);
+
+		// Create sphere
+		const sphere = BABYLON.MeshBuilder.CreateSphere(
+			`sphere${i}`,
+			{ diameter },
+			scene,
+		);
+
+		sphere.position = new BABYLON.Vector3(x, y, z);
+
+		// Apply color to material
+		const material = new BABYLON.StandardMaterial(`material${i}`, scene);
+		material.diffuseColor = color;
+		sphere.material = material;
+	}
+};
+
+/****************************************
+ * Returns random number within given ranger
+ * @returns {void}
+ ****************************************/
+const getRandomInRange = (min: number, max: number): number => {
+	return Math.random() * (max - min) + min;
 };
 
 /****************************************
