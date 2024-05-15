@@ -5,6 +5,7 @@ import '@babylonjs/loaders';
 import * as GUI from '@babylonjs/gui';
 import { Inspector } from '@babylonjs/inspector';
 import {
+	AbstractMesh,
 	ArcRotateCamera,
 	AxesViewer,
 	Color3,
@@ -12,6 +13,7 @@ import {
 	HemisphericLight,
 	Matrix,
 	MeshBuilder,
+	Nullable,
 	Scene,
 	SceneLoader,
 	StandardMaterial,
@@ -22,6 +24,7 @@ let canvas: HTMLCanvasElement;
 let engine: Engine;
 let scene: Scene;
 let camera: ArcRotateCamera;
+let hoveredMesh: Nullable<AbstractMesh> = null;
 
 //state
 // interface IState {
@@ -259,10 +262,44 @@ const checkForMesh = () => {
 
 		let hit = scene.pickWithRay(ray);
 
-		if (hit?.pickedMesh) {
-			console.log(hit.pickedMesh.name);
+		let newHoveredMesh = hit?.pickedMesh || null;
+
+		if (newHoveredMesh !== hoveredMesh) {
+			hoveredMesh = newHoveredMesh;
+			// Apply outline effect here or trigger outline update
+			applyOutlineEffect();
 		}
 	};
+};
+
+const applyOutlineEffect = () => {
+	// Load outline shader
+	BABYLON.Effect.ShadersStore['outlineShaderVertex'] = `
+        precision highp float;
+        attribute vec3 position;
+        uniform mat4 worldViewProjection;
+        void main(void) {
+            gl_Position = worldViewProjection * vec4(position, 1.0);
+        }
+    `;
+
+	BABYLON.Effect.ShadersStore['outlineShaderFragment'] = `
+        precision highp float;
+        void main(void) {
+            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red outline for now
+        }
+    `;
+
+	// Create outline material
+	var outlineMaterial = new BABYLON.ShaderMaterial('outlineShader', scene, {
+		vertex: 'outlineShaderVertex',
+		fragment: 'outlineShaderFragment',
+	});
+
+	// Apply outline material to the hovered mesh
+	if (hoveredMesh) {
+		hoveredMesh.material = outlineMaterial;
+	}
 };
 
 /****************************************
