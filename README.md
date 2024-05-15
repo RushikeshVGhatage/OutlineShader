@@ -2,8 +2,7 @@
 
 ## Description
 
--   Following project is created using **[BabylonJS](https://www.babylonjs.com/)** (3D Javascript Library). :heart:
--   Refer **Output.png** file to see output of demo.
+-   This project is created using **[BabylonJS](https://www.babylonjs.com/)** (3D Javascript Library). :heart:
 
 #### Created by [Rushikesh Vinod Ghatage](https://www.linkedin.com/in/rushikesh-ghatage-477489222/) :smiley:
 
@@ -11,7 +10,7 @@
 
 #### Download [Node.js](https://nodejs.org/en/download/).
 
-#### Run following commands:
+#### Run the following commands:
 
 -   To install dependencies (only the first time)
     ```bash
@@ -25,3 +24,7 @@
     ```bash
     npm run build
     ```
+
+### Note:
+
+Project is incomplete.
