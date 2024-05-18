@@ -8,14 +8,16 @@ import {
 	AbstractMesh,
 	ArcRotateCamera,
 	AxesViewer,
+	Camera,
 	Color3,
+	Effect,
 	Engine,
 	HemisphericLight,
 	Matrix,
 	MeshBuilder,
-	Nullable,
 	Scene,
 	SceneLoader,
+	ShaderMaterial,
 	StandardMaterial,
 	Vector3,
 } from '@babylonjs/core';
@@ -24,7 +26,9 @@ let canvas: HTMLCanvasElement;
 let engine: Engine;
 let scene: Scene;
 let camera: ArcRotateCamera;
-let hoveredMesh: Nullable<AbstractMesh> = null;
+
+let scaleFactor: number = 1.0;
+let outlineColor: Color3 = Color3.White();
 
 //state
 // interface IState {
@@ -129,13 +133,13 @@ const createScene = (): void => {
 
 	setupLight();
 
-	// createGUI();
+	createGUI();
 
 	loadModel();
 
-	loadPrimitive();
+	// loadPrimitive();
 
-	checkForMesh();
+	checkForMesh(scene, camera);
 };
 
 /****************************************
@@ -162,19 +166,30 @@ const setupCamera = () => {
 const createGUI = () => {
 	let advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
 
-	let button = GUI.Button.CreateSimpleButton('btnClickHere', 'Click Here');
-	button.width = 0.15;
-	button.height = 0.075;
-	button.top = '300px';
-	button.color = 'white';
-	button.background = 'green';
-	button.cornerRadius = 10;
-	button.fontSize = 40;
-	// advancedTexture.addControl(button);
-
-	button.onPointerDownObservable.add(() => {
-		console.log('CLICKED');
+	var picker = new GUI.ColorPicker();
+	picker.top = '-275px';
+	picker.left = '800px';
+	picker.height = '225px';
+	picker.width = '225px';
+	picker.onValueChangedObservable.add(function (value) {
+		outlineColor = value;
 	});
+
+	advancedTexture.addControl(picker);
+
+	var slider = new GUI.Slider();
+	slider.minimum = 1.0;
+	slider.maximum = 1.2;
+	slider.top = '-100px';
+	slider.left = '800px';
+	slider.value = 0;
+	slider.height = '25px';
+	slider.width = '225px';
+	slider.onValueChangedObservable.add(function (value) {
+		scaleFactor = value;
+	});
+	slider.color = 'red';
+	advancedTexture.addControl(slider);
 };
 
 /****************************************
@@ -250,7 +265,10 @@ const loadPrimitive = () => {
 	}
 };
 
-const checkForMesh = () => {
+export function checkForMesh(scene: Scene, camera: Camera): void {
+	let hoveredMesh: AbstractMesh | null = null;
+	let scaledMesh: AbstractMesh | null = null;
+
 	scene.onPointerMove = () => {
 		let ray = scene.createPickingRay(
 			scene.pointerX,
@@ -261,46 +279,107 @@ const checkForMesh = () => {
 		);
 
 		let hit = scene.pickWithRay(ray);
-
 		let newHoveredMesh = hit?.pickedMesh || null;
 
 		if (newHoveredMesh !== hoveredMesh) {
+			// If there is a previously scaled mesh, dispose of it
+			if (scaledMesh) {
+				scaledMesh.dispose();
+				scaledMesh = null;
+			}
+
 			hoveredMesh = newHoveredMesh;
-			// Apply outline effect here or trigger outline update
-			applyOutlineEffect();
+
+			if (hoveredMesh) {
+				// Create a clone of the hovered mesh
+				scaledMesh = hoveredMesh.clone(
+					`${hoveredMesh.name}_scaled`,
+					null,
+				);
+
+				if (scaledMesh) {
+					// Apply scaling shader to the cloned mesh with the user-defined color
+					scaleMeshWithShader(scaledMesh, scaleFactor, outlineColor);
+
+					// Ensure the position, rotation, and scaling of the scaled mesh match the original
+					scaledMesh.position = hoveredMesh.position.clone();
+					scaledMesh.rotation = hoveredMesh.rotation.clone();
+					scaledMesh.scaling = new Vector3(1, 1, 1); // Reset scaling to 1 to only rely on the shader for scaling
+				}
+			}
 		}
 	};
-};
+}
 
-const applyOutlineEffect = () => {
-	// Load outline shader
-	BABYLON.Effect.ShadersStore['outlineShaderVertex'] = `
+function scaleMeshWithShader(
+	mesh: AbstractMesh,
+	scaleFactor: number,
+	color: Color3,
+) {
+	// Vertex shader
+	const vertexShader = `
         precision highp float;
+
+        // Attributes
         attribute vec3 position;
+
+        // Uniforms
         uniform mat4 worldViewProjection;
+        uniform vec3 scalingFactor;
+
+        // Varyings
+        varying vec3 vPosition;
+
         void main(void) {
-            gl_Position = worldViewProjection * vec4(position, 1.0);
+            vec3 scaledPosition = position * scalingFactor;
+            gl_Position = worldViewProjection * vec4(scaledPosition, 1.0);
+            vPosition = position;
         }
     `;
 
-	BABYLON.Effect.ShadersStore['outlineShaderFragment'] = `
+	// Fragment shader
+	const fragmentShader = `
         precision highp float;
+
+        // Varyings
+        varying vec3 vPosition;
+
+        // Uniforms
+        uniform vec3 color;
+
         void main(void) {
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red outline for now
+            gl_FragColor = vec4(color, 1.0);
         }
     `;
 
-	// Create outline material
-	var outlineMaterial = new BABYLON.ShaderMaterial('outlineShader', scene, {
-		vertex: 'outlineShaderVertex',
-		fragment: 'outlineShaderFragment',
-	});
+	// Register the shader
+	Effect.ShadersStore['customScaleVertexShader'] = vertexShader;
+	Effect.ShadersStore['customScaleFragmentShader'] = fragmentShader;
 
-	// Apply outline material to the hovered mesh
-	if (hoveredMesh) {
-		hoveredMesh.material = outlineMaterial;
-	}
-};
+	// Create shader material
+	const shaderMaterial = new ShaderMaterial(
+		'shader',
+		scene,
+		{
+			vertex: 'customScale',
+			fragment: 'customScale',
+		},
+		{
+			attributes: ['position'],
+			uniforms: ['worldViewProjection', 'scalingFactor', 'color'],
+		},
+	);
+
+	// Set the scaling factor and color uniforms
+	shaderMaterial.setVector3(
+		'scalingFactor',
+		new Vector3(scaleFactor, scaleFactor, scaleFactor),
+	);
+	shaderMaterial.setColor3('color', color);
+
+	// Apply the shader material to the mesh
+	mesh.material = shaderMaterial;
+}
 
 /****************************************
  * Returns random number within given ranger
