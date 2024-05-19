@@ -27,8 +27,8 @@ let engine: Engine;
 let scene: Scene;
 let camera: ArcRotateCamera;
 
-let scaleFactor: number = 1.0;
-let outlineColor: Color3 = Color3.White();
+let scaleFactor: number = 0.0;
+let outlineColor: Color3 = Color3.Red();
 
 //state
 // interface IState {
@@ -135,9 +135,9 @@ const createScene = (): void => {
 
 	createGUI();
 
-	loadModel();
+	loadPrimitive();
 
-	// loadPrimitive();
+	loadModel();
 
 	checkForMesh(scene, camera);
 };
@@ -171,21 +171,21 @@ const createGUI = () => {
 	picker.left = '800px';
 	picker.height = '225px';
 	picker.width = '225px';
-	picker.onValueChangedObservable.add(function (value) {
+	picker.onValueChangedObservable.add((value) => {
 		outlineColor = value;
 	});
 
 	advancedTexture.addControl(picker);
 
 	var slider = new GUI.Slider();
-	slider.minimum = 1.0;
-	slider.maximum = 1.2;
+	slider.minimum = 0.0;
+	slider.maximum = 0.2;
 	slider.top = '-100px';
 	slider.left = '800px';
 	slider.value = 0;
 	slider.height = '25px';
 	slider.width = '225px';
-	slider.onValueChangedObservable.add(function (value) {
+	slider.onValueChangedObservable.add((value) => {
 		scaleFactor = value;
 	});
 	slider.color = 'red';
@@ -220,7 +220,7 @@ const loadModel = () => {
 			let root = meshes[0];
 
 			root.position = new Vector3(0, -1, 0);
-			console.log('Model loaded successfully!');
+			console.log('Model loaded successfully!', root);
 		},
 	);
 };
@@ -269,6 +269,8 @@ export function checkForMesh(scene: Scene, camera: Camera): void {
 	let hoveredMesh: AbstractMesh | null = null;
 	let scaledMesh: AbstractMesh | null = null;
 
+	// engine.setDepthFunction(engine._gl.ALWAYS);
+
 	scene.onPointerMove = () => {
 		let ray = scene.createPickingRay(
 			scene.pointerX,
@@ -304,7 +306,12 @@ export function checkForMesh(scene: Scene, camera: Camera): void {
 					// Ensure the position, rotation, and scaling of the scaled mesh match the original
 					scaledMesh.position = hoveredMesh.position.clone();
 					scaledMesh.rotation = hoveredMesh.rotation.clone();
-					scaledMesh.scaling = new Vector3(1, 1, 1); // Reset scaling to 1 to only rely on the shader for scaling
+					// scaledMesh.scaling = new Vector3(1, 1, 1); // Reset scaling to 1 to only rely on the shader for scaling
+
+					if (scaledMesh.material) {
+						// scaledMesh.material.wireframe = true;
+						scaledMesh.renderingGroupId = 1;
+					}
 				}
 			}
 		}
@@ -318,39 +325,50 @@ function scaleMeshWithShader(
 ) {
 	// Vertex shader
 	const vertexShader = `
-        precision highp float;
+    precision highp float;
 
-        // Attributes
-        attribute vec3 position;
+    // Attributes
+    attribute vec3 position;
+    attribute vec3 normal;
 
-        // Uniforms
-        uniform mat4 worldViewProjection;
-        uniform vec3 scalingFactor;
+    // Uniforms
+    uniform mat4 worldViewProjection;
+    uniform mat4 world;
+    uniform float scalingFactor;
 
-        // Varyings
-        varying vec3 vPosition;
+    // Varyings
+    varying vec3 vNormal;
+    varying vec3 vPosition;
 
-        void main(void) {
-            vec3 scaledPosition = position * scalingFactor;
-            gl_Position = worldViewProjection * vec4(scaledPosition, 1.0);
-            vPosition = position;
-        }
-    `;
+    void main(void) {
+        vec3 scaledPosition = position + normal * vec3(scalingFactor) ;
+        gl_Position = worldViewProjection * vec4(scaledPosition, 1.0);
+        vPosition = vec3(world * vec4(position, 1.0));
+        vNormal = mat3(world) * normal; // Transform the normal to world space
+    }`;
 
-	// Fragment shader
 	const fragmentShader = `
-        precision highp float;
+    precision highp float;
 
-        // Varyings
-        varying vec3 vPosition;
+    // Varyings
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+		
+    // Uniforms
+    uniform vec3 cameraPosition;
+    uniform vec3 color;
+    uniform float scalingFactor;
 
-        // Uniforms
-        uniform vec3 color;
+    void main(void) {
+        vec3 viewDirection = normalize(cameraPosition - vPosition);
+        float dotProduct = dot(normalize(vNormal), viewDirection);
 
-        void main(void) {
-            gl_FragColor = vec4(color, 1.0);
+        if (dotProduct > (0.4 + scalingFactor)) {
+			discard;
+        } else {
+			gl_FragColor = vec4(color, 1.0);
         }
-    `;
+    }`;
 
 	// Register the shader
 	Effect.ShadersStore['customScaleVertexShader'] = vertexShader;
@@ -365,17 +383,25 @@ function scaleMeshWithShader(
 			fragment: 'customScale',
 		},
 		{
-			attributes: ['position'],
-			uniforms: ['worldViewProjection', 'scalingFactor', 'color'],
+			attributes: ['position', 'normal'],
+			uniforms: [
+				'worldViewProjection',
+				'world',
+				'cameraPosition',
+				'scalingFactor',
+				'color',
+			],
 		},
 	);
 
 	// Set the scaling factor and color uniforms
-	shaderMaterial.setVector3(
-		'scalingFactor',
-		new Vector3(scaleFactor, scaleFactor, scaleFactor),
-	);
+	shaderMaterial.setFloat('scalingFactor', scaleFactor);
 	shaderMaterial.setColor3('color', color);
+
+	// Set the camera position uniform dynamically
+	scene.registerBeforeRender(() => {
+		shaderMaterial.setVector3('cameraPosition', camera.position);
+	});
 
 	// Apply the shader material to the mesh
 	mesh.material = shaderMaterial;
