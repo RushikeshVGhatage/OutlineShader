@@ -1,13 +1,10 @@
 import { useEffect } from 'react';
 
-import * as BABYLON from '@babylonjs/core';
 import '@babylonjs/loaders';
 import * as GUI from '@babylonjs/gui';
-import { Inspector } from '@babylonjs/inspector';
 import {
 	AbstractMesh,
 	ArcRotateCamera,
-	AxesViewer,
 	Camera,
 	Color3,
 	Effect,
@@ -30,26 +27,19 @@ let camera: ArcRotateCamera;
 let scaleFactor: number = 0.0;
 let outlineColor: Color3 = Color3.Red();
 
-//state
-// interface IState {
-
-// }
-
-// props
-// interface IProps {
-
-// }
-
 /****************************************
  * Functional React component representing a 3D scene using Babylon.js.
+ * @returns void
  ****************************************/
 export default function SceneComponent() {
 	const initialize = () => {
-		// console.clear();
+		console.clear();
 
+		// Canvas creation
 		canvas = document.getElementById('canvas') as HTMLCanvasElement;
 		console.log('Canvas created successfully');
 
+		// Engine initialization
 		engine = new Engine(
 			canvas,
 			true,
@@ -58,11 +48,10 @@ export default function SceneComponent() {
 			},
 			true,
 		);
+
 		console.log('Engine initialized succesfully');
 
-		// let axis = new AxesViewer(scene, 100);
-		// console.log(axis);
-
+		// User interaction
 		document.addEventListener('keydown', (event) => {
 			keyDown(event);
 		});
@@ -71,11 +60,15 @@ export default function SceneComponent() {
 			keyUp(event);
 		});
 
+		// Resizing
 		window.addEventListener('resize', () => {
 			engine.resize(true);
 		});
 
+		// Create babylonjs scene
 		createScene();
+
+		// Game loop
 		renderLoop();
 	};
 
@@ -93,17 +86,12 @@ export default function SceneComponent() {
 /****************************************
  * Handles the keydown event for a specific functionality.
  * @param {KeyboardEvent} event - The KeyboardEvent object representing the keydown event.
- * @returns {void}
+ * @returns void
  ****************************************/
 const keyDown = (event: KeyboardEvent): void => {
 	switch (event.key) {
 		case 'E':
 		case 'e':
-			break;
-
-		case 'G':
-		case 'g':
-			Inspector.Show(scene, { enablePopup: true });
 			break;
 	}
 };
@@ -111,34 +99,39 @@ const keyDown = (event: KeyboardEvent): void => {
 /****************************************
  * Handles the keyup event for a specific functionality.
  * @param {KeyboardEvent} event - The KeyboardEvent object representing the keyup event.
- * @returns {void}
+ * @returns void
  ****************************************/
 const keyUp = (event: KeyboardEvent): void => {
 	switch (event.key) {
 		case 'E':
 		case 'e':
-			console.log('E key is Pressed!');
 			break;
 	}
 };
 
 /****************************************
  * Creates and initializes a 3D scene using the Babylon.js framework.
- * @returns {void}
+ * @returns void
  ****************************************/
 const createScene = (): void => {
 	scene = new Scene(engine);
 
+	// Set camera
 	setupCamera();
 
+	// Set lighting
 	setupLight();
 
+	// Create UI
 	createGUI();
 
+	// Load basic geometries
 	loadPrimitive();
 
+	// Load Mesh
 	loadModel();
 
+	// Keep checking for meshed under cursor
 	checkForMesh(scene, camera);
 };
 
@@ -146,7 +139,7 @@ const createScene = (): void => {
  * Sets up and configures the camera for the Babylon.js 3D scene.
  * @returns {void}
  ****************************************/
-const setupCamera = () => {
+const setupCamera = (): void => {
 	camera = new ArcRotateCamera(
 		'Camera',
 		0,
@@ -163,10 +156,11 @@ const setupCamera = () => {
  * Creates a GUI using BABYLON GUI
  * @returns {void}
  ****************************************/
-const createGUI = () => {
+const createGUI = (): void => {
 	let advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
 
-	var picker = new GUI.ColorPicker();
+	// Color picker
+	let picker = new GUI.ColorPicker();
 	picker.top = '-275px';
 	picker.left = '800px';
 	picker.height = '225px';
@@ -177,7 +171,8 @@ const createGUI = () => {
 
 	advancedTexture.addControl(picker);
 
-	var slider = new GUI.Slider();
+	// Slider
+	let slider = new GUI.Slider();
 	slider.minimum = 0.0;
 	slider.maximum = 0.2;
 	slider.top = '-100px';
@@ -185,10 +180,11 @@ const createGUI = () => {
 	slider.value = 0;
 	slider.height = '25px';
 	slider.width = '225px';
+	slider.color = 'red';
 	slider.onValueChangedObservable.add((value) => {
 		scaleFactor = value;
 	});
-	slider.color = 'red';
+
 	advancedTexture.addControl(slider);
 };
 
@@ -196,7 +192,8 @@ const createGUI = () => {
  * Sets up and configures lighting for the Babylon.js 3D scene.
  * @returns {void}
  ****************************************/
-const setupLight = () => {
+const setupLight = (): void => {
+	// Hemispheric light
 	let hemiLight = new HemisphericLight(
 		'hemiLight',
 		new Vector3(-1, 1, 0),
@@ -210,7 +207,8 @@ const setupLight = () => {
  * Loads a 3D model into the Babylon.js 3D scene.
  * @returns {void}
  ****************************************/
-const loadModel = () => {
+const loadModel = (): void => {
+	// Load Standford bunny
 	SceneLoader.ImportMesh(
 		'',
 		'/assets/',
@@ -219,8 +217,9 @@ const loadModel = () => {
 		(meshes) => {
 			let root = meshes[0];
 
-			root.position = new Vector3(0, -1, 0);
-			console.log('Model loaded successfully!', root);
+			root.position = new Vector3(0, -1.5, 0);
+			root.scaling = new Vector3(1.5, 1.5, 1.5);
+			console.log('Model loaded successfully!');
 		},
 	);
 };
@@ -229,12 +228,12 @@ const loadModel = () => {
  * Creates and loads primitive shapes into the Babylon.js 3D scene.
  * @returns {void}
  ****************************************/
-const loadPrimitive = () => {
-	const numberOfSpheres = 5;
+const loadPrimitive = (): void => {
+	const numberOfSpheres = 7;
 	const minPos = -1.0;
 	const maxPos = 1.0;
 	const minRadius = 0.75;
-	const maxRadius = 1.0;
+	const maxRadius = 1.5;
 
 	for (let i = 0; i < numberOfSpheres; i++) {
 		const x = getRandomInRange(minPos, maxPos);
@@ -265,11 +264,15 @@ const loadPrimitive = () => {
 	}
 };
 
-export function checkForMesh(scene: Scene, camera: Camera): void {
+/****************************************
+Handles the pointer move event in the scene to check for mesh under the cursor.
+@param {Scene} scene - The scene object containing all the elements.
+@param {Camera} camera - The camera object used for creating the picking ray.
+@returns {void}
+****************************************/
+const checkForMesh = (scene: Scene, camera: Camera): void => {
 	let hoveredMesh: AbstractMesh | null = null;
 	let scaledMesh: AbstractMesh | null = null;
-
-	// engine.setDepthFunction(engine._gl.ALWAYS);
 
 	scene.onPointerMove = () => {
 		let ray = scene.createPickingRay(
@@ -284,7 +287,7 @@ export function checkForMesh(scene: Scene, camera: Camera): void {
 		let newHoveredMesh = hit?.pickedMesh || null;
 
 		if (newHoveredMesh !== hoveredMesh) {
-			// If there is a previously scaled mesh, dispose of it
+			// If there is previously scaled mesh, dispose it
 			if (scaledMesh) {
 				scaledMesh.dispose();
 				scaledMesh = null;
@@ -293,36 +296,41 @@ export function checkForMesh(scene: Scene, camera: Camera): void {
 			hoveredMesh = newHoveredMesh;
 
 			if (hoveredMesh) {
-				// Create a clone of the hovered mesh
+				// Create clone of the hovered mesh
 				scaledMesh = hoveredMesh.clone(
 					`${hoveredMesh.name}_scaled`,
 					null,
 				);
 
 				if (scaledMesh) {
-					// Apply scaling shader to the cloned mesh with the user-defined color
-					scaleMeshWithShader(scaledMesh, scaleFactor, outlineColor);
+					// Apply scaling shader to cloned mesh with user-defined color
+					applyOutlineMesh(scaledMesh, scaleFactor, outlineColor);
 
-					// Ensure the position, rotation, and scaling of the scaled mesh match the original
+					// Ensure the position, rotation, and scaling of scaled mesh match the original
 					scaledMesh.position = hoveredMesh.position.clone();
 					scaledMesh.rotation = hoveredMesh.rotation.clone();
-					// scaledMesh.scaling = new Vector3(1, 1, 1); // Reset scaling to 1 to only rely on the shader for scaling
 
 					if (scaledMesh.material) {
-						// scaledMesh.material.wireframe = true;
 						scaledMesh.renderingGroupId = 1;
 					}
 				}
 			}
 		}
 	};
-}
+};
 
-function scaleMeshWithShader(
+/****************************************
+Applies custom shader to scale and colorize mesh.
+@param {AbstractMesh} mesh - Mesh to which the shader will be applied.
+@param {number} scaleFactor - Factor by which the mesh will be scaled.
+@param {Color3} color - Color to be applied to the mesh.
+@returns {void}
+****************************************/
+const applyOutlineMesh = (
 	mesh: AbstractMesh,
 	scaleFactor: number,
 	color: Color3,
-) {
+): void => {
 	// Vertex shader
 	const vertexShader = `
     precision highp float;
@@ -344,20 +352,21 @@ function scaleMeshWithShader(
         vec3 scaledPosition = position + normal * vec3(scalingFactor) ;
         gl_Position = worldViewProjection * vec4(scaledPosition, 1.0);
         vPosition = vec3(world * vec4(position, 1.0));
-        vNormal = mat3(world) * normal; // Transform the normal to world space
+        vNormal = mat3(world) * normal;
     }`;
 
+	// Fragment shader
 	const fragmentShader = `
     precision highp float;
+
+	// Uniforms
+    uniform vec3 cameraPosition;
+    uniform vec3 color;
+    uniform float scalingFactor;
 
     // Varyings
     varying vec3 vNormal;
     varying vec3 vPosition;
-		
-    // Uniforms
-    uniform vec3 cameraPosition;
-    uniform vec3 color;
-    uniform float scalingFactor;
 
     void main(void) {
         vec3 viewDirection = normalize(cameraPosition - vPosition);
@@ -371,16 +380,16 @@ function scaleMeshWithShader(
     }`;
 
 	// Register the shader
-	Effect.ShadersStore['customScaleVertexShader'] = vertexShader;
-	Effect.ShadersStore['customScaleFragmentShader'] = fragmentShader;
+	Effect.ShadersStore['customOutlineVertexShader'] = vertexShader;
+	Effect.ShadersStore['customOutlineFragmentShader'] = fragmentShader;
 
 	// Create shader material
 	const shaderMaterial = new ShaderMaterial(
 		'shader',
 		scene,
 		{
-			vertex: 'customScale',
-			fragment: 'customScale',
+			vertex: 'customOutline',
+			fragment: 'customOutline',
 		},
 		{
 			attributes: ['position', 'normal'],
@@ -394,18 +403,18 @@ function scaleMeshWithShader(
 		},
 	);
 
-	// Set the scaling factor and color uniforms
-	shaderMaterial.setFloat('scalingFactor', scaleFactor);
-	shaderMaterial.setColor3('color', color);
-
-	// Set the camera position uniform dynamically
+	// Set camera position uniform at run time
 	scene.registerBeforeRender(() => {
 		shaderMaterial.setVector3('cameraPosition', camera.position);
 	});
 
-	// Apply the shader material to the mesh
+	// Set scaling factor and color uniforms
+	shaderMaterial.setFloat('scalingFactor', scaleFactor);
+	shaderMaterial.setColor3('color', color);
+
+	// Apply shader material to mesh
 	mesh.material = shaderMaterial;
-}
+};
 
 /****************************************
  * Returns random number within given ranger
@@ -419,7 +428,8 @@ const getRandomInRange = (min: number, max: number): number => {
  * Initiates the rendering loop for continuous updates and rendering of the Babylon.js scene.
  * @returns {void}
  ****************************************/
-const renderLoop = () => {
+const renderLoop = (): void => {
+	// Game loop
 	engine.runRenderLoop(() => {
 		scene.render();
 	});
