@@ -169,6 +169,16 @@ const createGUI = (): void => {
 
 	advancedTexture.addControl(colorHeader);
 
+	// Outline Width Header
+	let widthHeader = new GUI.TextBlock();
+	widthHeader.text = 'Outline Width : ';
+	widthHeader.top = '-100px';
+	widthHeader.left = '550px';
+	widthHeader.fontSize = '30px';
+	widthHeader.color = 'white';
+
+	advancedTexture.addControl(widthHeader);
+
 	// Color picker
 	let picker = new GUI.ColorPicker();
 	picker.top = '-275px';
@@ -180,16 +190,6 @@ const createGUI = (): void => {
 	});
 
 	advancedTexture.addControl(picker);
-
-	// Outline Width Header
-	let widthHeader = new GUI.TextBlock();
-	widthHeader.text = 'Outline Width : ';
-	widthHeader.top = '-100px';
-	widthHeader.left = '550px';
-	widthHeader.fontSize = '30px';
-	widthHeader.color = 'white';
-
-	advancedTexture.addControl(widthHeader);
 
 	// Slider
 	let slider = new GUI.Slider();
