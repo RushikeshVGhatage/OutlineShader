@@ -159,6 +159,16 @@ const setupCamera = (): void => {
 const createGUI = (): void => {
 	let advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
 
+	// Outline Color Header
+	let colorHeader = new GUI.TextBlock();
+	colorHeader.text = 'Outline Color : ';
+	colorHeader.top = '-275px';
+	colorHeader.left = '550px';
+	colorHeader.fontSize = '30px';
+	colorHeader.color = 'white';
+
+	advancedTexture.addControl(colorHeader);
+
 	// Color picker
 	let picker = new GUI.ColorPicker();
 	picker.top = '-275px';
@@ -170,6 +180,16 @@ const createGUI = (): void => {
 	});
 
 	advancedTexture.addControl(picker);
+
+	// Outline Width Header
+	let widthHeader = new GUI.TextBlock();
+	widthHeader.text = 'Outline Width : ';
+	widthHeader.top = '-100px';
+	widthHeader.left = '550px';
+	widthHeader.fontSize = '30px';
+	widthHeader.color = 'white';
+
+	advancedTexture.addControl(widthHeader);
 
 	// Slider
 	let slider = new GUI.Slider();
