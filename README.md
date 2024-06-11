@@ -1,4 +1,4 @@
-# Snaptrude Assignment
+# Outline Shader Assignment
 
 ## Description
 
