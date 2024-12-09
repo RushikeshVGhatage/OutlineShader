@@ -7,6 +7,7 @@ import {
 	ArcRotateCamera,
 	Camera,
 	Color3,
+	Color4,
 	Effect,
 	Engine,
 	HemisphericLight,
@@ -18,6 +19,7 @@ import {
 	StandardMaterial,
 	Vector3,
 } from '@babylonjs/core';
+import { Inspector } from '@babylonjs/inspector';
 
 let canvas: HTMLCanvasElement;
 let engine: Engine;
@@ -36,7 +38,9 @@ export default function SceneComponent() {
 		console.clear();
 
 		// Canvas creation
-		canvas = document.getElementById('canvas') as HTMLCanvasElement;
+		canvas = document.getElementById(
+			'canvas',
+		) as unknown as HTMLCanvasElement;
 		console.log('Canvas created successfully');
 
 		// Engine initialization
@@ -92,6 +96,7 @@ const keyDown = (event: KeyboardEvent): void => {
 	switch (event.key) {
 		case 'E':
 		case 'e':
+			Inspector.Show(scene, {});
 			break;
 	}
 };
@@ -116,6 +121,8 @@ const keyUp = (event: KeyboardEvent): void => {
 const createScene = (): void => {
 	scene = new Scene(engine);
 
+	scene.clearColor = new Color4(0.0, 0.0, 0.0, 1.0);
+
 	// Set camera
 	setupCamera();
 
@@ -123,16 +130,116 @@ const createScene = (): void => {
 	setupLight();
 
 	// Create UI
-	createGUI();
+	// createGUI();
 
 	// Load basic geometries
-	loadPrimitive();
+	// loadPrimitive();
+	const cone = MeshBuilder.CreateCylinder(
+		'cone',
+		{ diameterTop: 1, height: 4.5, diameterBottom: 3, subdivisions: 64 },
+		scene,
+	);
+
+	applyAlphaBasedOnView(cone);
 
 	// Load Mesh
-	loadModel();
+	// loadModel();
 
 	// Keep checking for meshed under cursor
-	checkForMesh(scene, camera);
+	// checkForMesh(scene, camera);
+};
+
+const applyAlphaBasedOnView = (mesh: AbstractMesh): void => {
+	// Vertex Shader
+	const vertexShader = `
+    precision highp float;
+
+    // Attributes
+    attribute vec3 position;
+    attribute vec3 normal;
+
+    // Uniforms
+    uniform mat4 worldViewProjection;
+    uniform mat4 world;
+
+    // Varying
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    
+    void main(void) {
+        vPosition = vec3(world * vec4(position, 1.0));
+        vNormal = mat3(world) * normal;
+        gl_Position = worldViewProjection * vec4(position, 1.0);
+    }`;
+
+	// Fragment Shader
+	const fragmentShader = `
+    precision highp float;
+
+    // Uniforms
+    uniform vec3 cameraPosition;
+	uniform float edgeAttenuation;
+    uniform float distanceAttenuation;
+    uniform vec3 attenuationOrigin;
+
+    // Varyings
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+
+    void main(void) {
+        vec3 viewDirection = normalize(cameraPosition - vPosition);
+        float dotProduct = pow(dot(normalize(vNormal), viewDirection), edgeAttenuation);
+
+        // Compute distance attenuation
+        float distance = length(vPosition - attenuationOrigin);
+        float distanceAttenuation = clamp(1.0 - (distance / distanceAttenuation), 0.0, 1.0);
+
+        // Final alpha is the product of dot product and attenuation
+        float alpha = dotProduct * distanceAttenuation;
+
+        gl_FragColor = vec4(1.0, 0.0, 0.0, alpha);
+    }`;
+
+	// Register the shaders
+	Effect.ShadersStore['customOutlineVertexShader'] = vertexShader;
+	Effect.ShadersStore['customOutlineFragmentShader'] = fragmentShader;
+
+	// Create shader material
+	const shaderMaterial = new ShaderMaterial(
+		'shader',
+		scene,
+		{
+			vertex: 'customOutline',
+			fragment: 'customOutline',
+		},
+		{
+			attributes: ['position', 'normal'],
+			uniforms: [
+				'worldViewProjection',
+				'world',
+				'cameraPosition',
+				'edgeAttenuation',
+				'attenuationOrigin',
+				'distanceAttenuation',
+			],
+		},
+	);
+
+	// Set camera position uniform at runtime
+	scene.registerBeforeRender(() => {
+		shaderMaterial.setVector3('cameraPosition', camera.position);
+	});
+
+	shaderMaterial.setVector3('attenuationOrigin', new Vector3(0.0, 1.75, 0.0));
+	shaderMaterial.setFloat('distanceAttenuation', 4.5);
+	shaderMaterial.setFloat('edgeAttenuation', 2.0);
+
+	shaderMaterial.transparencyMode = ShaderMaterial.MATERIAL_ALPHABLEND;
+	shaderMaterial.alphaMode = ShaderMaterial.MATERIAL_ALPHABLEND;
+	shaderMaterial.alpha = 0.0;
+
+	// Apply shader material to the mesh
+	mesh.material = shaderMaterial;
 };
 
 /****************************************
@@ -322,18 +429,19 @@ const checkForMesh = (scene: Scene, camera: Camera): void => {
 					null,
 				);
 
-				if (scaledMesh) {
-					// Apply scaling shader to cloned mesh with user-defined color
-					applyOutlineMesh(scaledMesh, scaleFactor, outlineColor);
+				// if (scaledMesh) {
+				// Apply scaling shader to cloned mesh with user-defined color
+				// applyOutlineMesh(scaledMesh, scaleFactor, outlineColor);
+				applyAlphaBasedOnView(hoveredMesh);
 
-					// Ensure the position, rotation, and scaling of scaled mesh match the original
-					scaledMesh.position = hoveredMesh.position.clone();
-					scaledMesh.rotation = hoveredMesh.rotation.clone();
+				// Ensure the position, rotation, and scaling of scaled mesh match the original
+				// scaledMesh.position = hoveredMesh.position.clone();
+				// scaledMesh.rotation = hoveredMesh.rotation.clone();
 
-					if (scaledMesh.material) {
-						scaledMesh.renderingGroupId = 1;
-					}
-				}
+				// if (scaledMesh.material) {
+				// 	scaledMesh.renderingGroupId = 1;
+				// }
+				// }
 			}
 		}
 	};
